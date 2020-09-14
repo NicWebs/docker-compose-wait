@@ -69,9 +69,9 @@ def get_services_ids(dc_args):
         services[name] = id
     return services
 
-def get_services_statuses(services_with_ids):
+def get_services_statuses(services_with_ids, exception_list):
     statuses_by_id = get_converted_statuses(services_with_ids.values())
-    return dict([(k, statuses_by_id[v]) for k, v in services_with_ids.items()])
+    return dict([(k, statuses_by_id[v]) for k, v in services_with_ids.items() if k not in exception_list])
 
 def main():
     parser = argparse.ArgumentParser(
@@ -89,6 +89,10 @@ def main():
                     help='Max amount of time during which this command will run (expressed using the '
                     + 'same format than in docker-compose.yml files, example: 5s, 10m,... ). If there is a '
                     + 'timeout this command will exit returning 1. (default: wait for an infinite amount of time)')
+    parser.add_argument('-b', '--blacklist', type=str, default=None,
+                        help='Comma-delimited list of services to exclude from wait. i.e. services that could be'
+                        + 'unhealthy.'
+                        )
 
     args = parser.parse_args()
     dc_args = get_docker_compose_args(args)
@@ -101,16 +105,20 @@ def main():
     up_statuses = set(['healthy', 'up'])
     down_statuses = set(['down', 'unhealthy', 'removed'])
     stabilized_statuses = up_statuses | down_statuses
+    blacklist = [str(bl.strip()) for bl in args.blacklist.split(',')] if args.blacklist else []
 
     while True:
-        statuses = get_services_statuses(services_ids)
+        statuses = get_services_statuses(services_ids, blacklist)
 
         if args.wait:
             if any([v not in stabilized_statuses for k, v in statuses.items()]):
                 continue
 
         if all([v in up_statuses for k, v in statuses.items()]):
-            print("All processes up and running")
+            msg = "All processes up and running in {} sec".format(int(time.time() - start_time))
+            if blacklist:
+                msg = msg+('\nDid not wait for: {}'.format(blacklist))
+            print(msg)
             exit(0)
         elif any([v in down_statuses for k, v in statuses.items()]):
             print("Some processes failed:")
