@@ -103,7 +103,7 @@ def main():
     services_ids = get_services_ids(dc_args)
 
     up_statuses = set(['healthy', 'up'])
-    down_statuses = set(['down', 'unhealthy', 'removed'])
+    down_statuses = set(['down', 'unhealthy', 'removed', 'Exit'])
     stabilized_statuses = up_statuses | down_statuses
     blacklist = [str(bl.strip()) for bl in args.blacklist.split(',')] if args.blacklist else []
 
